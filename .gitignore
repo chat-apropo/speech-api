@@ -1,0 +1,7 @@
+__pycache__
+/*.wav
+*.mp3
+config.py
+models/
+test.py
+venv/

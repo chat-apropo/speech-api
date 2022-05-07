@@ -13,7 +13,7 @@ from flask import Flask, jsonify, request, send_file, after_this_request
 from stt import Model, version
 from werkzeug.utils import secure_filename
 
-from config import BEARER
+from config import BEARER, PY_PATH
 
 app = Flask(__name__)
 
@@ -236,7 +236,7 @@ def tts(lang):
     text = shlex.quote(text)
     filename = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
     try:
-        if subprocess.call(f"/home/mattf/programs/STT/venv/bin/python3 -m larynx {lang} \"{text}\" > {filename}", shell=True):
+        if subprocess.call(f"{PY_PATH} -m larynx {lang} \"{text}\" > {filename}", shell=True):
             return jsonify({"error": "Failed to generate audio file"})
     except subprocess.CalledProcessError as e:
         os.remove(filename)
