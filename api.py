@@ -9,7 +9,7 @@ import wave
 from pathlib import Path
 
 import numpy as np
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file, after_this_request
 from stt import Model, version
 from werkzeug.utils import secure_filename
 
@@ -111,12 +111,11 @@ def get_audio_length(audio_path):
 def is_auth(request):
     return BEARER == request.headers.get("Authorization")
 
-@app.route("/languages", methods=["GET"])
+@app.route("/stt/languages", methods=["GET"])
 def langs():
     if not is_auth(request):
         return jsonify({"error": "Unauthorized"}), 401
     languages = [p.name for p in Path("./models/").glob("*") if p.is_dir()]
-    print(request.headers)
     return jsonify(languages)
 
 @app.route("/version", methods=["GET"])
@@ -125,7 +124,7 @@ def ver():
         return jsonify({"error": "Unauthorized"}), 401
     return version()
 
-@app.route("/<lang>", methods=["POST"])
+@app.route("/stt/<lang>", methods=["POST"])
 def stt_lib(lang):
     if not is_auth(request):
         return jsonify({"error": "Unauthorized"}), 401
@@ -212,10 +211,45 @@ def stt_lib(lang):
     return jsonify(transcript)
 
 
+TTS_LANGUAGES = {"de", "en", "es", "fr", "it", "nl", "ru", "sv", "sw"}
+MAX_TTS_TEXT_LENGTH = 512
+
+@app.route("/tts/languages", methods=["GET"])
+def ttslangs():
+    if not is_auth(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    languages = list(TTS_LANGUAGES)
+    return jsonify(languages)
+
+@app.route("/tts/<lang>", methods=["POST"])
+def tts(lang):
+    if not is_auth(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    if lang not in TTS_LANGUAGES:
+        return jsonify({"error": "Language not supported"})
+    text = request.form.get("text")
+    if not text:
+        return jsonify({"error": "No text provided"})
+    if len(text) > MAX_TTS_TEXT_LENGTH:
+        return jsonify({"error": "Text too long. Max length is {} characters".format(MAX_TTS_TEXT_LENGTH)})
+
+    text = shlex.quote(text)
+    filename = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+    try:
+        if subprocess.call(f"/home/mattf/programs/STT/venv/bin/python3 -m larynx {lang} \"{text}\" > {filename}", shell=True):
+            return jsonify({"error": "Failed to generate audio file"})
+    except subprocess.CalledProcessError as e:
+        os.remove(filename)
+        return jsonify({"error": "Failed to generate audio file " + str(e)})
+
+    @after_this_request
+    def remove_file(response):
+        os.remove(filename)
+        return response
+    return send_file(filename, mimetype="audio/wav")
 
 def main():
     app.run(host='127.0.0.1', port=5555)
-
 
 if __name__ == "__main__":
     main()
