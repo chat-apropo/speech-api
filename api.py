@@ -236,7 +236,8 @@ def tts(lang):
     text = shlex.quote(text)
     filename = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
     try:
-        if subprocess.call(f"{PY_PATH} -m larynx {lang} \"{text}\" > {filename}", shell=True):
+        app.logger.info(f"RUNNING: {PY_PATH} -m larynx {lang} {text} > {filename}")
+        if subprocess.call(f"{PY_PATH} -m larynx {lang} {text} > {filename}", shell=True):
             return jsonify({"error": "Failed to generate audio file"})
     except subprocess.CalledProcessError as e:
         os.remove(filename)
