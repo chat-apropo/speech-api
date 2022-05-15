@@ -9,7 +9,7 @@ import wave
 from pathlib import Path
 
 import numpy as np
-from flask import Flask, jsonify, request, send_file, after_this_request
+from flask import Flask, after_this_request, jsonify, request, send_file
 from stt import Model, version
 from werkzeug.utils import secure_filename
 
@@ -236,8 +236,11 @@ def tts(lang):
     text = shlex.quote(text)
     filename = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
     try:
-        app.logger.info(f"RUNNING: {PY_PATH} -m larynx {lang} {text} > {filename}")
-        if subprocess.call(f"{PY_PATH} -m larynx {lang} {text} > {filename}", shell=True):
+        if lang.strip() == "en":
+            lang = ""
+        cmd = f"{PY_PATH} -m larynx {lang} {text} > {filename}"
+        app.logger.info(f"RUNNING: {cmd}")
+        if subprocess.call(cmd, shell=True):
             return jsonify({"error": "Failed to generate audio file"})
     except subprocess.CalledProcessError as e:
         os.remove(filename)
